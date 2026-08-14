@@ -20,8 +20,8 @@ export default function Countdown({ openAt, className = "" }: CountdownProps) {
 
   return (
     <span
-      className={`${
-        opened ? "text-emerald-600" : "text-slate-600"
+      className={`mono-readout text-sm font-medium ${
+        opened ? "text-emerald-300" : "glow-text"
       } ${className}`}
     >
       {formatCountdownLabel(openAt, now)}
