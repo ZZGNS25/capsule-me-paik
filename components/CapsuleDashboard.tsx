@@ -2,7 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { onAuthStateChanged, type User } from "firebase/auth";
+import {
+  GoogleAuthProvider,
+  onAuthStateChanged,
+  signInWithPopup,
+  type User,
+} from "firebase/auth";
 import {
   formatOpenDate,
   getCapsulePhotoUrls,
@@ -12,13 +17,16 @@ import {
 import { getFirebaseAuth } from "@/lib/firebase";
 import { getSupabase } from "@/lib/supabase";
 import Countdown from "@/components/Countdown";
+import GoogleLoginButton from "@/components/GoogleLoginButton";
 import {
+  NotificationPrompt,
   OpenMessageBanner,
-  requestNotificationPermission,
   useCapsuleOpenAlert,
+  useNotificationPermission,
 } from "@/components/OpenMessage";
 
 type Filter = "all" | "locked" | "open";
+type Sort = "newest" | "soonest";
 
 type CapsuleDashboardProps = {
   mode?: "all" | "mine";
@@ -33,8 +41,11 @@ export default function CapsuleDashboard({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
+  const [sort, setSort] = useState<Sort>("newest");
+  const [query, setQuery] = useState("");
   const [now, setNow] = useState(() => Date.now());
-  const [notifyReady, setNotifyReady] = useState(false);
+  const [loginBusy, setLoginBusy] = useState(false);
+  const { permission, enable } = useNotificationPermission();
   const { message, dismiss } = useCapsuleOpenAlert({
     capsules,
     enabled: !loading && capsules.length > 0,
@@ -53,11 +64,6 @@ export default function CapsuleDashboard({
   }, []);
 
   useEffect(() => {
-    if (notifyReady || capsules.length === 0) return;
-    void requestNotificationPermission().finally(() => setNotifyReady(true));
-  }, [capsules.length, notifyReady]);
-
-  useEffect(() => {
     if (!authReady) return;
     if (mode === "mine" && !user) {
       setCapsules([]);
@@ -72,7 +78,7 @@ export default function CapsuleDashboard({
       setLoading(true);
       setError(null);
 
-      let query = getSupabase()
+      let queryBuilder = getSupabase()
         .from("capsules")
         .select(
           "id, owner_uid, title, recipient, letter, open_at, created_at, photo_paths",
@@ -80,10 +86,10 @@ export default function CapsuleDashboard({
         .order("created_at", { ascending: false });
 
       if (mode === "mine" && user) {
-        query = query.eq("owner_uid", user.uid);
+        queryBuilder = queryBuilder.eq("owner_uid", user.uid);
       }
 
-      const { data, error: fetchError } = await query;
+      const { data, error: fetchError } = await queryBuilder;
 
       if (cancelled) return;
 
@@ -116,13 +122,40 @@ export default function CapsuleDashboard({
   }, [capsules, now]);
 
   const visibleCapsules = useMemo(() => {
-    return capsules.filter((capsule) => {
+    const normalizedQuery = query.trim().toLowerCase();
+
+    let list = capsules.filter((capsule) => {
       const opened = isCapsuleOpen(capsule.open_at, now);
       if (filter === "open") return opened;
       if (filter === "locked") return !opened;
       return true;
     });
-  }, [capsules, filter, now]);
+
+    if (normalizedQuery) {
+      list = list.filter((capsule) => {
+        const name = (capsule.recipient || capsule.title || "").toLowerCase();
+        return name.includes(normalizedQuery);
+      });
+    }
+
+    return [...list].sort((a, b) => {
+      if (sort === "soonest") {
+        return new Date(a.open_at).getTime() - new Date(b.open_at).getTime();
+      }
+      return (
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+    });
+  }, [capsules, filter, now, query, sort]);
+
+  async function handleInlineLogin() {
+    setLoginBusy(true);
+    try {
+      await signInWithPopup(getFirebaseAuth(), new GoogleAuthProvider());
+    } finally {
+      setLoginBusy(false);
+    }
+  }
 
   const title = mode === "mine" ? "내가 묻은 캡슐" : "캡슐 보드";
   const description =
@@ -134,88 +167,110 @@ export default function CapsuleDashboard({
     <section className="mt-10">
       <OpenMessageBanner message={message} onClose={dismiss} />
 
-      <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h2 className="text-xl font-semibold tracking-tight text-slate-800">
-            {title}
-          </h2>
-          <p className="mt-1 text-sm text-slate-500">{description}</p>
+      <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="label-caps">Command Center</p>
+            <h2 className="etched mt-1 text-xl font-semibold tracking-tight">
+              {title}
+            </h2>
+            <p className="mt-1 text-sm text-slate-400">{description}</p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {(
+              [
+                ["all", `전체 ${counts.total}`],
+                ["locked", `봉인 ${counts.locked}`],
+                ["open", `열림 ${counts.open}`],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setFilter(value)}
+                className={`chip ${filter === value ? "chip-active" : ""}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="flex gap-2">
-          {(
-            [
-              ["all", `전체 ${counts.total}`],
-              ["locked", `잠김 ${counts.locked}`],
-              ["open", `열림 ${counts.open}`],
-            ] as const
-          ).map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setFilter(value)}
-              className={`rounded-full px-3.5 py-1.5 text-sm transition ${
-                filter === value
-                  ? "bg-slate-800 text-white"
-                  : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <input
+            type="search"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="받는 사람 검색…"
+            className="field sm:max-w-xs"
+          />
+          <select
+            value={sort}
+            onChange={(event) => setSort(event.target.value as Sort)}
+            className="field sm:max-w-[11rem]"
+          >
+            <option value="newest">최신 생성순</option>
+            <option value="soonest">가까운 열람일순</option>
+          </select>
         </div>
+
+        <NotificationPrompt
+          permission={permission}
+          onEnable={() => void enable()}
+        />
       </div>
 
       {mode === "mine" && authReady && !user ? (
-        <div className="mt-8 rounded-2xl border border-dashed border-slate-300 bg-white/70 px-6 py-12 text-center">
-          <p className="text-base font-medium text-slate-700">
+        <div className="steel-panel mt-8 px-6 py-12 text-center">
+          <p className="etched text-base font-medium">
             로그인하면 내가 묻은 캡슐을 볼 수 있어요
           </p>
-          <p className="mt-2 text-sm text-slate-500">
-            Google로 로그인한 뒤 다시 이 페이지를 열어 주세요.
+          <p className="mt-2 text-sm text-slate-400">
+            Google 계정으로 로그인하면 바로 목록이 표시됩니다.
           </p>
-          <Link
-            href="/"
-            className="mt-6 inline-block rounded-xl bg-slate-800 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-700"
-          >
-            홈에서 로그인하기
-          </Link>
+          <div className="mt-6">
+            <GoogleLoginButton onClick={handleInlineLogin} busy={loginBusy} />
+          </div>
         </div>
       ) : null}
 
       {loading ? (
-        <p className="mt-10 text-sm text-slate-400">캡슐을 불러오는 중…</p>
-      ) : null}
-
-      {error ? (
-        <div className="mt-8 rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-700">
-          {error}
+        <div className="mt-10 space-y-3">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="steel-card h-28 animate-pulse" />
+          ))}
         </div>
       ) : null}
+
+      {error ? <div className="alert-error mt-8">{error}</div> : null}
 
       {!loading &&
       !error &&
       !(mode === "mine" && !user) &&
       visibleCapsules.length === 0 ? (
-        <div className="mt-8 rounded-2xl border border-dashed border-slate-300 bg-white/70 px-6 py-12 text-center">
-          <p className="text-base font-medium text-slate-700">
-            {mode === "mine"
-              ? "아직 내가 묻은 캡슐이 없어요"
-              : "아직 보여 줄 캡슐이 없어요"}
+        <div className="steel-panel mt-8 px-6 py-12 text-center">
+          <p className="etched text-base font-medium">
+            {query.trim()
+              ? "검색 결과가 없어요"
+              : mode === "mine"
+                ? "아직 내가 묻은 캡슐이 없어요"
+                : "아직 보여 줄 캡슐이 없어요"}
           </p>
-          <p className="mt-2 text-sm text-slate-500">
-            첫 번째 캡슐을 묻으면 이곳에 목록이 나타납니다.
+          <p className="mt-2 text-sm text-slate-400">
+            {query.trim()
+              ? "다른 이름으로 검색해 보세요."
+              : "첫 번째 캡슐을 묻으면 이곳에 목록이 나타납니다."}
           </p>
-          <Link
-            href="/new"
-            className="mt-6 inline-block rounded-xl bg-slate-800 px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-700"
-          >
-            캡슐 묻으러 가기
-          </Link>
+          {!query.trim() ? (
+            <Link href="/new" className="btn-primary mt-6 inline-flex">
+              캡슐 묻으러 가기
+            </Link>
+          ) : null}
         </div>
       ) : null}
 
-      <div className="mt-8 grid gap-4">
+      <div className="mt-8 grid gap-3">
         {visibleCapsules.map((capsule) => {
           const opened = isCapsuleOpen(capsule.open_at, now);
           const photos = getCapsulePhotoUrls(capsule.photo_paths);
@@ -226,63 +281,61 @@ export default function CapsuleDashboard({
             <Link
               key={capsule.id}
               href={`/capsule/${capsule.id}`}
-              className="group flex gap-4 rounded-2xl border border-slate-200/80 bg-white/80 p-4 shadow-sm backdrop-blur-sm transition hover:border-slate-300 hover:bg-white"
+              className="steel-card group flex gap-4 p-4"
             >
-              <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-xl bg-slate-100">
+              <div className="photo-frame relative h-24 w-24 shrink-0 overflow-hidden bg-slate-900">
                 {cover ? (
                   <img
                     src={cover}
                     alt=""
                     className={`h-full w-full object-cover transition ${
-                      opened ? "" : "scale-105 blur-[2px] brightness-90"
+                      opened ? "" : "scale-105 blur-[2px] brightness-75"
                     }`}
                   />
                 ) : (
-                  <div className="flex h-full items-center justify-center text-xs text-slate-400">
-                    No photo
+                  <div className="mono-readout flex h-full items-center justify-center text-[10px] text-slate-500">
+                    NO IMG
                   </div>
                 )}
                 {!opened ? (
-                  <div className="absolute inset-0 flex items-center justify-center bg-slate-900/25 text-xs font-medium text-white">
-                    LOCKED
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/45">
+                    <span className="status-lamp status-lamp-locked" />
+                    <span className="mono-readout text-[10px] tracking-widest text-sky-200">
+                      SEALED
+                    </span>
                   </div>
-                ) : null}
+                ) : (
+                  <div className="absolute right-1.5 top-1.5">
+                    <span className="status-lamp status-lamp-open" />
+                  </div>
+                )}
               </div>
 
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="truncate text-base font-semibold text-slate-800">
+                  <h3 className="etched truncate text-base font-semibold">
                     {name}
                   </h3>
-                  <span
-                    className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                      opened
-                        ? "bg-emerald-50 text-emerald-700"
-                        : "bg-slate-100 text-slate-600"
-                    }`}
-                  >
+                  <span className={opened ? "badge-open" : "badge-locked"}>
                     {opened ? "열람 가능" : "봉인 중"}
                   </span>
                 </div>
 
-                <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-slate-500">
+                <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-slate-400">
                   {opened
                     ? capsule.letter || "편지가 비어 있어요."
                     : "열람일 전까지 편지는 비밀로 남겨 둡니다."}
                 </p>
 
                 <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
-                  <Countdown
-                    openAt={capsule.open_at}
-                    className="font-medium"
-                  />
-                  <span className="text-slate-300">·</span>
+                  <Countdown openAt={capsule.open_at} />
+                  <span className="text-slate-500">·</span>
                   <span className="text-slate-400">
-                    열람일 {formatOpenDate(capsule.open_at)}
+                    {formatOpenDate(capsule.open_at)}
                   </span>
-                  <span className="text-slate-300">·</span>
-                  <span className="text-slate-400">
-                    사진 {photos.length}장
+                  <span className="text-slate-500">·</span>
+                  <span className="mono-readout text-xs text-slate-500">
+                    {photos.length} PHOTOS
                   </span>
                 </div>
               </div>

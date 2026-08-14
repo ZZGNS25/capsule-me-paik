@@ -11,6 +11,13 @@ import {
   type User,
 } from "firebase/auth";
 import { getFirebaseAuth } from "@/lib/firebase";
+import GoogleLoginButton from "@/components/GoogleLoginButton";
+
+const NAV_ITEMS = [
+  { href: "/", label: "보드" },
+  { href: "/mine", label: "내 캡슐" },
+  { href: "/new", label: "묻기" },
+] as const;
 
 export default function AppHeader() {
   const router = useRouter();
@@ -55,63 +62,69 @@ export default function AppHeader() {
   }
 
   return (
-    <header className="flex flex-wrap items-center justify-between gap-4">
-      <Link href="/" className="text-left">
-        <p className="text-xs tracking-[0.22em] text-slate-400">CAPSULE ME</p>
-        <h1 className="mt-1 text-2xl font-semibold tracking-tight text-slate-800">
-          캡슐 미
-        </h1>
-      </Link>
-
-      <div className="flex flex-wrap items-center gap-3">
-        {user ? (
-          <>
-            <Link
-              href="/mine"
-              className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-            >
-              내 캡슐
-            </Link>
-            <Link
-              href="/new"
-              className="rounded-xl bg-slate-800 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-700"
-            >
-              캡슐 묻기
-            </Link>
-          </>
-        ) : null}
-
-        {loading ? (
-          <span className="text-sm text-slate-400">확인 중…</span>
-        ) : user ? (
-          <>
-            <span className="max-w-[10rem] truncate text-sm text-slate-600">
-              {user.displayName ?? user.email}
+    <header className="flex flex-col gap-4">
+      <div className="steel-panel flex flex-wrap items-center justify-between gap-4 px-5 py-4">
+        <Link href="/" className="flex items-center gap-3 text-left">
+          <div className="countdown-cell flex h-10 w-10 items-center justify-center">
+            <span className="mono-readout countdown-digit text-xs font-semibold">
+              CM
             </span>
-            <button
-              type="button"
-              onClick={handleLogout}
-              disabled={busy}
-              className="text-sm text-slate-500 underline-offset-2 transition hover:text-slate-700 hover:underline disabled:opacity-50"
-            >
-              로그아웃
-            </button>
-          </>
-        ) : (
-          <button
-            type="button"
-            onClick={handleGoogleLogin}
-            disabled={busy}
-            className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-800 transition hover:bg-slate-50 disabled:opacity-50"
-          >
-            {busy ? "로그인 중…" : "Google 로그인"}
-          </button>
-        )}
+          </div>
+          <div>
+            <p className="label-caps">Capsule Me</p>
+            <h1 className="etched text-xl font-semibold tracking-tight">
+              캡슐 미
+            </h1>
+          </div>
+        </Link>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {user ? (
+            <>
+              {NAV_ITEMS.map(({ href, label }) => {
+                const active =
+                  href === "/" ? pathname === "/" : pathname.startsWith(href);
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={`nav-link ${active ? "nav-link-active" : ""}`}
+                  >
+                    {label}
+                  </Link>
+                );
+              })}
+              <Link href="/new" className="btn-primary ml-1 px-4 py-2 text-sm">
+                캡슐 묻기
+              </Link>
+            </>
+          ) : null}
+
+          {loading ? (
+            <span className="mono-readout px-2 text-xs text-slate-500">
+              CHECKING…
+            </span>
+          ) : user ? (
+            <div className="ml-1 flex items-center gap-3 border-l border-black/50 pl-3">
+              <span className="max-w-[10rem] truncate text-sm text-slate-400">
+                {user.displayName ?? user.email}
+              </span>
+              <button
+                type="button"
+                onClick={handleLogout}
+                disabled={busy}
+                className="btn-ghost disabled:opacity-50"
+              >
+                로그아웃
+              </button>
+            </div>
+          ) : (
+            <GoogleLoginButton onClick={handleGoogleLogin} busy={busy} />
+          )}
+        </div>
       </div>
 
-      {error ? (
-        <p className="w-full text-sm text-rose-600">{error}</p>
-      ) : null}
+      {error ? <p className="alert-error">{error}</p> : null}
     </header>
   );
 }

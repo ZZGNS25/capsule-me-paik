@@ -13,10 +13,8 @@ import {
 import { getSupabase } from "@/lib/supabase";
 import Countdown from "@/components/Countdown";
 import AppHeader from "@/components/AppHeader";
-import {
-  OpenMessageBanner,
-  requestNotificationPermission,
-} from "@/components/OpenMessage";
+import PageShell from "@/components/PageShell";
+import { OpenMessageBanner } from "@/components/OpenMessage";
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -29,6 +27,7 @@ export default function CapsulePage() {
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const [forcePreview, setForcePreview] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [openMessage, setOpenMessage] = useState<{
     id: string;
     name: string;
@@ -38,10 +37,6 @@ export default function CapsulePage() {
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    void requestNotificationPermission();
   }, []);
 
   useEffect(() => {
@@ -110,6 +105,13 @@ export default function CapsulePage() {
     };
   }, [id]);
 
+  async function copyShareLink() {
+    const url = `${window.location.origin}/capsule/${id}`;
+    await navigator.clipboard.writeText(url);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 2000);
+  }
+
   const naturallyOpen = capsule ? isCapsuleOpen(capsule.open_at, now) : false;
   const opened = naturallyOpen || forcePreview;
   const photos = capsule ? getCapsulePhotoUrls(capsule.photo_paths) : [];
@@ -117,7 +119,7 @@ export default function CapsulePage() {
   const parts = capsule ? getCountdownParts(capsule.open_at, now) : null;
 
   return (
-    <div className="min-h-full flex-1 bg-gradient-to-b from-slate-100 via-sky-50 to-stone-100 px-6 py-10">
+    <PageShell>
       <OpenMessageBanner
         message={openMessage}
         onClose={() => setOpenMessage(null)}
@@ -126,52 +128,51 @@ export default function CapsulePage() {
         <AppHeader />
 
         {loading ? (
-          <p className="mt-16 text-center text-sm text-slate-400">
-            캡슐을 여는 중…
-          </p>
+          <div className="mt-16 space-y-4">
+            <div className="steel-card h-48 animate-pulse" />
+            <div className="steel-card h-32 animate-pulse" />
+          </div>
         ) : null}
 
         {error ? (
-          <div className="mt-16 rounded-3xl border border-rose-200 bg-rose-50 px-6 py-10 text-center">
-            <p className="text-rose-700">{error}</p>
-            <Link
-              href="/"
-              className="mt-6 inline-block text-sm text-slate-600 underline underline-offset-2"
-            >
+          <div className="alert-error mt-16 text-center">
+            <p>{error}</p>
+            <Link href="/" className="btn-secondary mt-6 inline-flex">
               보드로 돌아가기
             </Link>
           </div>
         ) : null}
 
         {!loading && !error && capsule && parts ? (
-          <section className="mt-10 overflow-hidden rounded-3xl border border-slate-200/80 bg-white/90 shadow-sm backdrop-blur-sm">
-            <div className="relative overflow-hidden border-b border-slate-100 px-8 py-10">
-              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(148,163,184,0.18),transparent_45%)]" />
+          <section className="steel-panel-glow mt-10 overflow-hidden">
+            <div className="relative overflow-hidden border-b border-black/60 px-8 py-10">
+              <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(56,189,248,0.28),transparent_55%)]" />
               <div className="relative">
-                <p className="text-xs tracking-[0.22em] text-slate-400">
-                  TIME CAPSULE
-                </p>
-                <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-800 sm:text-4xl">
+                <p className="label-caps">Time Capsule</p>
+                <h2 className="etched mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
                   {name}에게
                 </h2>
                 <div className="mt-5 flex flex-wrap items-center gap-3 text-sm">
                   <span
-                    className={`rounded-full px-3 py-1 font-medium ${
-                      naturallyOpen
-                        ? "bg-emerald-50 text-emerald-700"
-                        : "bg-slate-100 text-slate-600"
-                    }`}
+                    className={
+                      naturallyOpen ? "badge-open" : "badge-locked"
+                    }
                   >
                     {naturallyOpen ? "열람 가능" : "아직 기간이 남았어요"}
                   </span>
                   {forcePreview && !naturallyOpen ? (
-                    <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
-                      개발 미리보기
-                    </span>
+                    <span className="badge-dev">개발 미리보기</span>
                   ) : null}
+                  <button
+                    type="button"
+                    onClick={() => void copyShareLink()}
+                    className="chip text-xs"
+                  >
+                    {copied ? "링크 복사됨" : "링크 복사"}
+                  </button>
                 </div>
-                <p className="mt-4 text-sm text-slate-500">
-                  열람일 · {formatOpenDate(capsule.open_at)}
+                <p className="mono-readout mt-4 text-sm text-slate-400">
+                  UNLOCK · {formatOpenDate(capsule.open_at)}
                 </p>
               </div>
             </div>
@@ -180,26 +181,23 @@ export default function CapsulePage() {
               {opened ? (
                 <div className="space-y-8">
                   {!naturallyOpen ? (
-                    <div className="rounded-2xl border border-amber-200/80 bg-amber-50/70 px-4 py-3 text-sm text-amber-800">
+                    <div className="rounded-xl border border-amber-700/40 bg-amber-50 px-4 py-3 text-sm text-amber-800">
                       개발 모드로 미리 보는 중이에요. 실제 열람일은 아직
                       지나지 않았습니다.
                     </div>
                   ) : null}
 
                   <div>
-                    <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-400">
-                      Letter
-                    </p>
-                    <p className="mt-4 whitespace-pre-wrap text-base leading-8 text-slate-700">
+                    <p className="label-caps">Letter</p>
+                    <hr className="steel-rule mt-3" />
+                    <p className="mt-4 whitespace-pre-wrap text-base leading-8 text-slate-300">
                       {capsule.letter || "편지가 비어 있어요."}
                     </p>
                   </div>
 
                   {photos.length > 0 ? (
                     <div>
-                      <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-400">
-                        Photos
-                      </p>
+                      <p className="label-caps">Photos</p>
                       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
                         {photos.map((url, index) => (
                           <a
@@ -207,7 +205,7 @@ export default function CapsulePage() {
                             href={url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="overflow-hidden rounded-2xl ring-1 ring-slate-200"
+                            className="photo-frame overflow-hidden"
                           >
                             <img
                               src={url}
@@ -221,30 +219,30 @@ export default function CapsulePage() {
                   ) : null}
                 </div>
               ) : (
-                <div className="rounded-3xl bg-gradient-to-b from-slate-50 to-stone-50 px-6 py-12 text-center">
-                  <p className="text-sm tracking-[0.18em] text-slate-400">
-                    SEALED
-                  </p>
-                  <h3 className="mt-3 text-2xl font-semibold tracking-tight text-slate-800">
+                <div className="steel-card px-6 py-12 text-center">
+                  <div className="mx-auto flex items-center justify-center gap-2">
+                    <span className="status-lamp status-lamp-locked" />
+                    <p className="label-caps">Sealed</p>
+                  </div>
+                  <h3 className="etched mt-3 text-2xl font-semibold tracking-tight">
                     아직 기간이 남았어요
                   </h3>
-                  <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-slate-500">
+                  <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-slate-400">
                     열람일이 되기 전에는 편지와 사진을 열어볼 수 없어요.
                     남은 시간을 함께 기다려 주세요.
                   </p>
 
                   <div className="mx-auto mt-8 grid max-w-md grid-cols-4 gap-2">
-                    {[
-                      ["일", parts.days],
-                      ["시간", parts.hours],
-                      ["분", parts.minutes],
-                      ["초", parts.seconds],
-                    ].map(([label, value]) => (
-                      <div
-                        key={label}
-                        className="rounded-2xl bg-white px-2 py-4 shadow-sm ring-1 ring-slate-200/80"
-                      >
-                        <p className="text-2xl font-semibold tabular-nums text-slate-800">
+                    {(
+                      [
+                        ["일", parts.days],
+                        ["시간", parts.hours],
+                        ["분", parts.minutes],
+                        ["초", parts.seconds],
+                      ] as const
+                    ).map(([label, value]) => (
+                      <div key={label} className="countdown-cell px-2 py-4">
+                        <p className="mono-readout countdown-digit text-2xl font-semibold">
                           {String(value).padStart(2, "0")}
                         </p>
                         <p className="mt-1 text-xs text-slate-400">{label}</p>
@@ -252,18 +250,23 @@ export default function CapsulePage() {
                     ))}
                   </div>
 
-                  <p className="mt-6 text-sm font-medium text-slate-600">
+                  <p className="mt-6 text-sm font-medium">
                     <Countdown openAt={capsule.open_at} />
                   </p>
 
                   {photos[0] ? (
-                    <div className="relative mx-auto mt-10 h-44 w-44 overflow-hidden rounded-[1.75rem]">
+                    <div className="photo-frame relative mx-auto mt-10 h-44 w-44 overflow-hidden">
                       <img
                         src={photos[0]}
                         alt=""
                         className="h-full w-full object-cover blur-md brightness-90"
                       />
-                      <div className="absolute inset-0 bg-slate-900/20" />
+                      <div className="absolute inset-0 bg-slate-950/45" />
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <span className="mono-readout text-xs tracking-widest text-sky-200">
+                          LOCKED
+                        </span>
+                      </div>
                     </div>
                   ) : null}
 
@@ -271,7 +274,7 @@ export default function CapsulePage() {
                     <button
                       type="button"
                       onClick={() => setForcePreview(true)}
-                      className="mt-10 text-xs text-slate-300 transition hover:text-slate-500"
+                      className="btn-ghost mt-10 text-xs opacity-40 hover:opacity-70"
                     >
                       바로보기
                     </button>
@@ -280,18 +283,15 @@ export default function CapsulePage() {
               )}
             </div>
 
-            <div className="flex items-center justify-between border-t border-slate-100 px-8 py-5">
-              <Link
-                href="/"
-                className="text-sm text-slate-500 underline-offset-2 transition hover:text-slate-700 hover:underline"
-              >
+            <div className="flex items-center justify-between border-t border-black/60 px-8 py-5">
+              <Link href="/" className="btn-ghost">
                 ← 캡슐 보드로
               </Link>
               {forcePreview && !naturallyOpen ? (
                 <button
                   type="button"
                   onClick={() => setForcePreview(false)}
-                  className="text-xs text-slate-300 transition hover:text-slate-500"
+                  className="btn-ghost text-xs opacity-40 hover:opacity-70"
                 >
                   다시 봉인
                 </button>
@@ -300,6 +300,6 @@ export default function CapsulePage() {
           </section>
         ) : null}
       </main>
-    </div>
+    </PageShell>
   );
 }

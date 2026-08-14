@@ -47,6 +47,19 @@ export function getCountdownParts(openAt: string, now = Date.now()) {
   return { opened: false as const, days, hours, minutes, seconds };
 }
 
+export function toDatetimeLocalValue(date: Date) {
+  const offset = date.getTimezoneOffset();
+  const local = new Date(date.getTime() - offset * 60 * 1000);
+  return local.toISOString().slice(0, 16);
+}
+
+export function addDaysFromNow(days: number) {
+  const next = new Date();
+  next.setDate(next.getDate() + days);
+  next.setMinutes(0, 0, 0);
+  return toDatetimeLocalValue(next);
+}
+
 export function formatCountdownLabel(openAt: string, now = Date.now()) {
   const parts = getCountdownParts(openAt, now);
   if (parts.opened) return "지금 열 수 있어요";

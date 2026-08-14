@@ -89,6 +89,30 @@ export async function requestNotificationPermission() {
     | "default";
 }
 
+export function useNotificationPermission() {
+  const [permission, setPermission] = useState<
+    NotificationPermission | "unsupported"
+  >("default");
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      setPermission("unsupported");
+      return;
+    }
+    setPermission(Notification.permission);
+  }, []);
+
+  async function enable() {
+    const result = await requestNotificationPermission();
+    if (result !== "unsupported") {
+      setPermission(result);
+    }
+    return result;
+  }
+
+  return { permission, enable };
+}
+
 type OpenMessageBannerProps = {
   message: OpenMessage | null;
   onClose: () => void;
@@ -102,31 +126,54 @@ export function OpenMessageBanner({
 
   return (
     <div className="fixed inset-x-0 bottom-6 z-50 flex justify-center px-4">
-      <div className="w-full max-w-md rounded-2xl border border-emerald-200 bg-white/95 px-5 py-4 shadow-lg backdrop-blur-sm">
-        <p className="text-xs tracking-[0.18em] text-emerald-600">OPENED</p>
-        <p className="mt-2 text-base font-semibold text-slate-800">
-          캡슐이 열렸어요
-        </p>
-        <p className="mt-1 text-sm leading-relaxed text-slate-500">
+      <div className="steel-panel-glow w-full max-w-md px-5 py-4">
+        <div className="flex items-center gap-2">
+          <span className="status-lamp status-lamp-open" />
+          <p className="label-caps text-emerald-300">Unsealed</p>
+        </div>
+        <p className="etched mt-2 text-base font-semibold">캡슐이 열렸어요</p>
+        <p className="mt-1 text-sm leading-relaxed text-slate-400">
           {message.name}에게 남긴 이야기를 지금 열어볼 수 있어요.
         </p>
         <div className="mt-4 flex items-center gap-3">
           <Link
             href={`/capsule/${message.id}`}
-            className="rounded-xl bg-slate-800 px-4 py-2 text-sm font-medium text-white transition hover:bg-slate-700"
+            className="btn-primary px-4 py-2 text-sm"
             onClick={onClose}
           >
             열어보기
           </Link>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-sm text-slate-400 transition hover:text-slate-600"
-          >
+          <button type="button" onClick={onClose} className="btn-ghost">
             닫기
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+type NotificationPromptProps = {
+  permission: NotificationPermission | "unsupported";
+  onEnable: () => void;
+};
+
+export function NotificationPrompt({
+  permission,
+  onEnable,
+}: NotificationPromptProps) {
+  if (permission !== "default") return null;
+
+  return (
+    <div className="steel-panel flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+      <div>
+        <p className="etched text-sm font-medium">열람 시점 알림 받기</p>
+        <p className="mt-0.5 text-xs text-slate-400">
+          캡슐이 열리면 브라우저 알림으로 알려드려요.
+        </p>
+      </div>
+      <button type="button" onClick={onEnable} className="btn-secondary text-sm">
+        알림 켜기
+      </button>
     </div>
   );
 }
