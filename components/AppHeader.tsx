@@ -10,7 +10,7 @@ import {
   signOut,
   type User,
 } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { getFirebaseAuth } from "@/lib/firebase";
 
 export default function AppHeader() {
   const router = useRouter();
@@ -21,7 +21,7 @@ export default function AppHeader() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    return onAuthStateChanged(auth, (nextUser) => {
+    return onAuthStateChanged(getFirebaseAuth(), (nextUser) => {
       setUser(nextUser);
       setLoading(false);
     });
@@ -31,7 +31,7 @@ export default function AppHeader() {
     setError(null);
     setBusy(true);
     try {
-      await signInWithPopup(auth, new GoogleAuthProvider());
+      await signInWithPopup(getFirebaseAuth(), new GoogleAuthProvider());
       if (pathname !== "/") {
         router.replace("/");
       }
@@ -46,7 +46,7 @@ export default function AppHeader() {
     setError(null);
     setBusy(true);
     try {
-      await signOut(auth);
+      await signOut(getFirebaseAuth());
       window.location.assign("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "로그아웃에 실패했습니다.");

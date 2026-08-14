@@ -9,7 +9,7 @@ import {
   signOut,
   type User,
 } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { getFirebaseAuth } from "@/lib/firebase";
 
 export default function HomeAuth() {
   const [user, setUser] = useState<User | null>(null);
@@ -18,7 +18,7 @@ export default function HomeAuth() {
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
+    const unsubscribe = onAuthStateChanged(getFirebaseAuth(), (nextUser) => {
       setUser(nextUser);
       setLoading(false);
     });
@@ -31,7 +31,7 @@ export default function HomeAuth() {
     setBusy(true);
     try {
       const provider = new GoogleAuthProvider();
-      await signInWithPopup(auth, provider);
+      await signInWithPopup(getFirebaseAuth(), provider);
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "로그인에 실패했습니다.";
@@ -45,7 +45,7 @@ export default function HomeAuth() {
     setError(null);
     setBusy(true);
     try {
-      await signOut(auth);
+      await signOut(getFirebaseAuth());
     } catch (err) {
       const message =
         err instanceof Error ? err.message : "로그아웃에 실패했습니다.";

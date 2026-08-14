@@ -10,7 +10,7 @@ import {
   isCapsuleOpen,
   type Capsule,
 } from "@/lib/capsule";
-import { supabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
 import Countdown from "@/components/Countdown";
 import AppHeader from "@/components/AppHeader";
 import {
@@ -78,7 +78,7 @@ export default function CapsulePage() {
       setError(null);
       setForcePreview(false);
 
-      const { data, error: fetchError } = await supabase
+      const { data, error: fetchError } = await getSupabase()
         .from("capsules")
         .select(
           "id, owner_uid, title, recipient, letter, open_at, created_at, photo_paths",

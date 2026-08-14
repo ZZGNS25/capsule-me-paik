@@ -1,4 +1,4 @@
-import { CAPSULE_BUCKET, supabase } from "@/lib/supabase";
+import { CAPSULE_BUCKET, getSupabase } from "@/lib/supabase";
 
 export type Capsule = {
   id: string;
@@ -12,7 +12,7 @@ export type Capsule = {
 };
 
 export function getPhotoUrl(path: string) {
-  return supabase.storage.from(CAPSULE_BUCKET).getPublicUrl(path).data
+  return getSupabase().storage.from(CAPSULE_BUCKET).getPublicUrl(path).data
     .publicUrl;
 }
 

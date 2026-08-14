@@ -3,8 +3,8 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { onAuthStateChanged, type User } from "firebase/auth";
-import { auth } from "@/lib/firebase";
-import { CAPSULE_BUCKET, supabase } from "@/lib/supabase";
+import { getFirebaseAuth } from "@/lib/firebase";
+import { CAPSULE_BUCKET, getSupabase } from "@/lib/supabase";
 import AppHeader from "@/components/AppHeader";
 
 type CapsuleResult = {
@@ -25,7 +25,7 @@ export default function NewCapsulePage() {
   const [result, setResult] = useState<CapsuleResult | null>(null);
 
   useEffect(() => {
-    return onAuthStateChanged(auth, setUser);
+    return onAuthStateChanged(getFirebaseAuth(), setUser);
   }, []);
 
   const previewUrls = useMemo(
@@ -68,7 +68,7 @@ export default function NewCapsulePage() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const currentUser = auth.currentUser ?? user;
+    const currentUser = getFirebaseAuth().currentUser ?? user;
     if (!currentUser) {
       setErrorMessage("로그인 후 캡슐을 묻을 수 있어요.");
       return;
@@ -95,7 +95,7 @@ export default function NewCapsulePage() {
           : "jpg";
         const path = `${currentUser.uid}/${timestamp}-${index}.${extension}`;
 
-        const { error } = await supabase.storage
+        const { error } = await getSupabase().storage
           .from(CAPSULE_BUCKET)
           .upload(path, file, {
             contentType: file.type || "image/jpeg",
@@ -106,7 +106,7 @@ export default function NewCapsulePage() {
           throw error;
         }
 
-        const { data } = supabase.storage
+        const { data } = getSupabase().storage
           .from(CAPSULE_BUCKET)
           .getPublicUrl(path);
 
@@ -114,7 +114,7 @@ export default function NewCapsulePage() {
         photoUrls.push(data.publicUrl);
       }
 
-      const { data, error } = await supabase
+      const { data, error } = await getSupabase()
         .from("capsules")
         .insert({
           owner_uid: currentUser.uid,

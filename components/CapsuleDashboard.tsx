@@ -9,8 +9,8 @@ import {
   isCapsuleOpen,
   type Capsule,
 } from "@/lib/capsule";
-import { auth } from "@/lib/firebase";
-import { supabase } from "@/lib/supabase";
+import { getFirebaseAuth } from "@/lib/firebase";
+import { getSupabase } from "@/lib/supabase";
 import Countdown from "@/components/Countdown";
 import {
   OpenMessageBanner,
@@ -41,7 +41,7 @@ export default function CapsuleDashboard({
   });
 
   useEffect(() => {
-    return onAuthStateChanged(auth, (nextUser) => {
+    return onAuthStateChanged(getFirebaseAuth(), (nextUser) => {
       setUser(nextUser);
       setAuthReady(true);
     });
@@ -72,7 +72,7 @@ export default function CapsuleDashboard({
       setLoading(true);
       setError(null);
 
-      let query = supabase
+      let query = getSupabase()
         .from("capsules")
         .select(
           "id, owner_uid, title, recipient, letter, open_at, created_at, photo_paths",

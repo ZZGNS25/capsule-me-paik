@@ -17,7 +17,11 @@ export const metadata: Metadata = {
   description: "사진과 편지를 묻고, 열람일에 함께 열어요",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
     <html
       lang="ko"
