@@ -43,7 +43,16 @@ export async function fetchLiveWeather(): Promise<WeatherSnapshot | null> {
   const response = await fetch(`/api/weather?${params.toString()}`, {
     cache: "no-store",
   });
-  if (!response.ok) return null;
+  if (!response.ok) {
+    let message = "날씨를 불러오지 못했어요.";
+    try {
+      const payload = (await response.json()) as { error?: string };
+      if (payload.error) message = payload.error;
+    } catch {
+      // keep default message
+    }
+    throw new Error(message);
+  }
   return (await response.json()) as WeatherSnapshot;
 }
 
@@ -54,6 +63,7 @@ export default function NowWeather({
 }: NowWeatherProps) {
   const [snapshot, setSnapshot] = useState<WeatherSnapshot | null>(null);
   const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [updatedAt, setUpdatedAt] = useState<number | null>(null);
   const onSnapshotRef = useRef(onSnapshot);
   onSnapshotRef.current = onSnapshot;
@@ -64,11 +74,15 @@ export default function NowWeather({
       const next = await fetchLiveWeather();
       setSnapshot(next);
       setUpdatedAt(next ? Date.now() : null);
+      setErrorMessage(null);
       setStatus(next ? "ready" : "error");
       onSnapshotRef.current?.(next);
-    } catch {
+    } catch (error) {
       setSnapshot(null);
       setStatus("error");
+      setErrorMessage(
+        error instanceof Error ? error.message : "날씨를 불러오지 못했어요.",
+      );
       onSnapshotRef.current?.(null);
     }
   }, []);
@@ -125,7 +139,7 @@ export default function NowWeather({
 
       {status === "error" && !snapshot ? (
         <p className="mt-4 text-sm text-slate-400">
-          날씨를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.
+          {errorMessage ?? "날씨를 불러오지 못했어요. 잠시 후 다시 시도해 주세요."}
         </p>
       ) : null}
 

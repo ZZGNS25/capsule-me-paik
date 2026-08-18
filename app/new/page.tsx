@@ -19,7 +19,8 @@ import { formatWeatherLine, type WeatherSnapshot } from "@/lib/weather";
 import type { CapsuleStyle } from "@/lib/gemini";
 import { fallbackCapsuleStyle } from "@/lib/gemini";
 import { getFirebaseAuth } from "@/lib/firebase";
-import { CAPSULE_BUCKET, getSupabase } from "@/lib/supabase";
+import { getSupabase } from "@/lib/supabase";
+import { uploadCapsulePhoto } from "@/lib/photo";
 import AppHeader from "@/components/AppHeader";
 import GoogleLoginButton from "@/components/GoogleLoginButton";
 import NowWeather, { fetchLiveWeather } from "@/components/NowWeather";
@@ -92,7 +93,19 @@ export default function NewCapsulePage() {
 
   function handleFilesChange(selected: FileList | null) {
     if (!selected) return;
-    setFiles((prev) => [...prev, ...Array.from(selected)]);
+    const next = Array.from(selected).filter((file) => file.size > 0);
+    if (next.length === 0) {
+      setErrorMessage(
+        "선택한 파일이 비어 있어요. 이 PC에 있는 사진을 골라 주세요.",
+      );
+      return;
+    }
+    if (next.length < selected.length) {
+      setErrorMessage(
+        "빈 파일은 제외했어요. OneDrive 파일이면 먼저 이 PC에 받은 뒤 다시 골라 주세요.",
+      );
+    }
+    setFiles((prev) => [...prev, ...next]);
   }
 
   function removeFile(index: number) {
@@ -189,34 +202,13 @@ export default function NewCapsulePage() {
     setResult(null);
 
     try {
-      const timestamp = Date.now();
       const photoPaths: string[] = [];
       const photoUrls: string[] = [];
 
-      for (let index = 0; index < files.length; index += 1) {
-        const file = files[index];
-        const extension = file.name.includes(".")
-          ? file.name.split(".").pop()?.toLowerCase() || "jpg"
-          : "jpg";
-        const path = `${currentUser.uid}/${timestamp}-${index}.${extension}`;
-
-        const { error } = await getSupabase().storage
-          .from(CAPSULE_BUCKET)
-          .upload(path, file, {
-            contentType: file.type || "image/jpeg",
-            upsert: false,
-          });
-
-        if (error) {
-          throw error;
-        }
-
-        const { data } = getSupabase().storage
-          .from(CAPSULE_BUCKET)
-          .getPublicUrl(path);
-
-        photoPaths.push(path);
-        photoUrls.push(data.publicUrl);
+      for (const file of files) {
+        const uploaded = await uploadCapsulePhoto(file, currentUser.uid);
+        photoPaths.push(uploaded.path);
+        photoUrls.push(uploaded.url);
       }
 
       let weather = null;
@@ -528,7 +520,7 @@ export default function NewCapsulePage() {
               <input
                 id="photos"
                 type="file"
-                accept="image/*"
+                accept=".jpg,.jpeg,.png,.webp,.gif,image/jpeg,image/png,image/webp,image/gif"
                 multiple
                 onChange={(event) => {
                   handleFilesChange(event.target.files);
@@ -536,6 +528,11 @@ export default function NewCapsulePage() {
                 }}
                 className="field cursor-pointer file:mr-3 file:rounded-md file:border file:border-black/70 file:bg-slate-600 file:px-3 file:py-1.5 file:text-sm file:text-slate-100"
               />
+              {files.length > 0 ? (
+                <p className="mono-readout text-xs text-slate-500">
+                  {files.map((file) => file.name).join(" · ")}
+                </p>
+              ) : null}
             </div>
 
             {previewUrls.length > 0 ? (
