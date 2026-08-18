@@ -9,6 +9,7 @@ import {
   type User,
 } from "firebase/auth";
 import {
+  CAPSULE_SELECT,
   formatOpenDate,
   getCapsulePhotoUrls,
   isCapsuleOpen,
@@ -18,6 +19,9 @@ import { getFirebaseAuth } from "@/lib/firebase";
 import { getSupabase } from "@/lib/supabase";
 import Countdown from "@/components/Countdown";
 import GoogleLoginButton from "@/components/GoogleLoginButton";
+import WeatherStamp from "@/components/WeatherStamp";
+import WeatherCapsule from "@/components/WeatherCapsule";
+import KeywordChips from "@/components/KeywordChips";
 import {
   NotificationPrompt,
   OpenMessageBanner,
@@ -80,9 +84,7 @@ export default function CapsuleDashboard({
 
       let queryBuilder = getSupabase()
         .from("capsules")
-        .select(
-          "id, owner_uid, title, recipient, letter, open_at, created_at, photo_paths",
-        )
+        .select(CAPSULE_SELECT)
         .order("created_at", { ascending: false });
 
       if (mode === "mine" && user) {
@@ -283,33 +285,43 @@ export default function CapsuleDashboard({
               href={`/capsule/${capsule.id}`}
               className="steel-card group flex gap-4 p-4"
             >
-              <div className="photo-frame relative h-24 w-24 shrink-0 overflow-hidden bg-slate-900">
-                {cover ? (
-                  <img
-                    src={cover}
-                    alt=""
-                    className={`h-full w-full object-cover transition ${
-                      opened ? "" : "scale-105 blur-[2px] brightness-75"
-                    }`}
-                  />
-                ) : (
-                  <div className="mono-readout flex h-full items-center justify-center text-[10px] text-slate-500">
-                    NO IMG
-                  </div>
-                )}
-                {!opened ? (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/45">
-                    <span className="status-lamp status-lamp-locked" />
-                    <span className="mono-readout text-[10px] tracking-widest text-sky-200">
-                      SEALED
-                    </span>
-                  </div>
-                ) : (
-                  <div className="absolute right-1.5 top-1.5">
-                    <span className="status-lamp status-lamp-open" />
-                  </div>
-                )}
-              </div>
+              {capsule.capsule_shape ? (
+                <WeatherCapsule
+                  shape={capsule.capsule_shape}
+                  color={capsule.capsule_color}
+                  colorAlt={capsule.capsule_color_alt}
+                  sealed={!opened}
+                  size="sm"
+                />
+              ) : (
+                <div className="photo-frame relative h-24 w-24 shrink-0 overflow-hidden bg-slate-900">
+                  {cover ? (
+                    <img
+                      src={cover}
+                      alt=""
+                      className={`h-full w-full object-cover transition ${
+                        opened ? "" : "scale-105 blur-[2px] brightness-75"
+                      }`}
+                    />
+                  ) : (
+                    <div className="mono-readout flex h-full items-center justify-center text-[10px] text-slate-500">
+                      NO IMG
+                    </div>
+                  )}
+                  {!opened ? (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/45">
+                      <span className="status-lamp status-lamp-locked" />
+                      <span className="mono-readout text-[10px] tracking-widest text-sky-200">
+                        SEALED
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="absolute right-1.5 top-1.5">
+                      <span className="status-lamp status-lamp-open" />
+                    </div>
+                  )}
+                </div>
+              )}
 
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
@@ -324,8 +336,10 @@ export default function CapsuleDashboard({
                 <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-slate-400">
                   {opened
                     ? capsule.letter || "편지가 비어 있어요."
-                    : "열람일 전까지 편지는 비밀로 남겨 둡니다."}
+                    : capsule.daily_quote ||
+                      "열람일 전까지 편지는 비밀로 남겨 둡니다."}
                 </p>
+                <KeywordChips keywords={capsule.keywords} className="mt-2" />
 
                 <div className="mt-3 flex flex-wrap items-center gap-3 text-sm">
                   <Countdown openAt={capsule.open_at} />
@@ -338,6 +352,12 @@ export default function CapsuleDashboard({
                     {photos.length} PHOTOS
                   </span>
                 </div>
+                <WeatherStamp
+                  weather={capsule.weather}
+                  weather_temp={capsule.weather_temp}
+                  weather_humidity={capsule.weather_humidity}
+                  className="mt-2 text-xs"
+                />
               </div>
             </Link>
           );

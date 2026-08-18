@@ -8,18 +8,36 @@ import {
   signInWithPopup,
   type User,
 } from "firebase/auth";
-import { addDaysFromNow, toDatetimeLocalValue } from "@/lib/capsule";
+import {
+  addDaysFromNow,
+  consumeCapsuleDraft,
+  toDatetimeLocalValue,
+} from "@/lib/capsule";
+import { formatWeatherLine, type WeatherSnapshot } from "@/lib/weather";
+import type { CapsuleStyle } from "@/lib/gemini";
 import { getFirebaseAuth } from "@/lib/firebase";
 import { CAPSULE_BUCKET, getSupabase } from "@/lib/supabase";
 import AppHeader from "@/components/AppHeader";
 import GoogleLoginButton from "@/components/GoogleLoginButton";
+import NowWeather, { fetchLiveWeather } from "@/components/NowWeather";
 import PageShell from "@/components/PageShell";
+import WeatherCapsule from "@/components/WeatherCapsule";
+import KeywordChips from "@/components/KeywordChips";
 
 type CapsuleResult = {
   id: string;
   recipient: string;
   openAt: string;
   photoUrls: string[];
+  weather: string | null;
+  weather_temp: number | null;
+  weather_humidity: number | null;
+  location: string | null;
+  daily_quote: string | null;
+  keywords: string[] | null;
+  capsule_shape: string | null;
+  capsule_color: string | null;
+  capsule_color_alt: string | null;
 };
 
 const DATE_PRESETS = [
@@ -40,6 +58,7 @@ export default function NewCapsulePage() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [result, setResult] = useState<CapsuleResult | null>(null);
   const [copied, setCopied] = useState(false);
+  const [liveWeather, setLiveWeather] = useState<WeatherSnapshot | null>(null);
 
   useEffect(() => {
     return onAuthStateChanged(getFirebaseAuth(), (nextUser) => {
@@ -107,6 +126,26 @@ export default function NewCapsulePage() {
     window.setTimeout(() => setCopied(false), 2000);
   }
 
+  async function fetchTodayWeather() {
+    return liveWeather ?? (await fetchLiveWeather());
+  }
+
+  async function fetchCapsuleStyle(payload: {
+    weather: string | null;
+    weather_temp: number | null;
+    weather_humidity: number | null;
+    recipient: string;
+    letter: string;
+  }): Promise<CapsuleStyle | null> {
+    const response = await fetch("/api/capsule-style", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) return null;
+    return (await response.json()) as CapsuleStyle;
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -161,6 +200,35 @@ export default function NewCapsulePage() {
         photoUrls.push(data.publicUrl);
       }
 
+      let weather = null;
+      let weatherTemp = null;
+      let weatherHumidity = null;
+      let location = null;
+      try {
+        const snapshot = await fetchTodayWeather();
+        if (snapshot) {
+          weather = snapshot.weather;
+          weatherTemp = snapshot.weather_temp;
+          weatherHumidity = snapshot.weather_humidity;
+          location = snapshot.location;
+        }
+      } catch (weatherError) {
+        console.error(weatherError);
+      }
+
+      let style: CapsuleStyle | null = null;
+      try {
+        style = await fetchCapsuleStyle({
+          weather,
+          weather_temp: weatherTemp,
+          weather_humidity: weatherHumidity,
+          recipient,
+          letter,
+        });
+      } catch (styleError) {
+        console.error(styleError);
+      }
+
       const { data, error } = await getSupabase()
         .from("capsules")
         .insert({
@@ -170,8 +238,18 @@ export default function NewCapsulePage() {
           letter,
           open_at: new Date(openAt).toISOString(),
           photo_paths: photoPaths,
+          weather,
+          weather_temp: weatherTemp,
+          weather_humidity: weatherHumidity,
+          daily_quote: style?.daily_quote ?? null,
+          keywords: style?.keywords ?? [],
+          capsule_shape: style?.capsule_shape ?? null,
+          capsule_color: style?.capsule_color ?? null,
+          capsule_color_alt: style?.capsule_color_alt ?? null,
         })
-        .select("id, recipient, open_at")
+        .select(
+          "id, recipient, open_at, weather, weather_temp, weather_humidity, daily_quote, keywords, capsule_shape, capsule_color, capsule_color_alt",
+        )
         .single();
 
       if (error) {
@@ -183,6 +261,16 @@ export default function NewCapsulePage() {
         recipient: data.recipient ?? recipient,
         openAt: data.open_at,
         photoUrls,
+        weather: data.weather ?? weather,
+        weather_temp: data.weather_temp ?? weatherTemp,
+        weather_humidity: data.weather_humidity ?? weatherHumidity,
+        location,
+        daily_quote: data.daily_quote ?? style?.daily_quote ?? null,
+        keywords: data.keywords ?? style?.keywords ?? null,
+        capsule_shape: data.capsule_shape ?? style?.capsule_shape ?? null,
+        capsule_color: data.capsule_color ?? style?.capsule_color ?? null,
+        capsule_color_alt:
+          data.capsule_color_alt ?? style?.capsule_color_alt ?? null,
       });
       setFiles([]);
     } catch (error) {
@@ -246,6 +334,29 @@ export default function NewCapsulePage() {
               <br />
               열람일은 {openDateLabel}입니다.
             </p>
+            {result.capsule_shape ? (
+              <div className="mt-6 flex justify-center">
+                <WeatherCapsule
+                  shape={result.capsule_shape}
+                  color={result.capsule_color}
+                  colorAlt={result.capsule_color_alt}
+                  sealed
+                  size="md"
+                />
+              </div>
+            ) : null}
+            {result.daily_quote ? (
+              <p className="mt-4 text-sm leading-relaxed text-sky-100">
+                {result.daily_quote}
+              </p>
+            ) : null}
+            <KeywordChips keywords={result.keywords} className="mt-3 justify-center" />
+            {formatWeatherLine(result) ? (
+              <p className="mono-readout mt-3 text-sm text-sky-200">
+                묻은 날 · {formatWeatherLine(result)}
+                {result.location ? ` · ${result.location}` : ""}
+              </p>
+            ) : null}
 
             <div className="steel-card mt-8 px-5 py-5 text-left">
               <p className="label-caps">Capsule ID</p>
@@ -320,7 +431,15 @@ export default function NewCapsulePage() {
           </h1>
           <p className="mt-3 text-center text-sm text-slate-400">
             편지와 사진을 봉인하고, 정해진 날에 함께 열어보세요.
+            <br />
+            묻는 순간의 날씨로 캡슐의 색과 형태가 정해지고,
+            키워드만 미리 남습니다.
           </p>
+          <NowWeather
+            className="mt-6"
+            caption="지금 이 순간의 날씨와 위치입니다. 묻는 날씨는 캡슐에 함께 기록됩니다"
+            onSnapshot={setLiveWeather}
+          />
           <hr className="steel-rule mt-6" />
 
           <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-5">

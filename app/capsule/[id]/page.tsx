@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
+  CAPSULE_SELECT,
   formatOpenDate,
   getCapsulePhotoUrls,
   getCountdownParts,
@@ -15,6 +16,9 @@ import Countdown from "@/components/Countdown";
 import AppHeader from "@/components/AppHeader";
 import PageShell from "@/components/PageShell";
 import { OpenMessageBanner } from "@/components/OpenMessage";
+import WeatherStamp from "@/components/WeatherStamp";
+import WeatherCapsule from "@/components/WeatherCapsule";
+import KeywordChips from "@/components/KeywordChips";
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -75,9 +79,7 @@ export default function CapsulePage() {
 
       const { data, error: fetchError } = await getSupabase()
         .from("capsules")
-        .select(
-          "id, owner_uid, title, recipient, letter, open_at, created_at, photo_paths",
-        )
+        .select(CAPSULE_SELECT)
         .eq("id", id)
         .maybeSingle();
 
@@ -147,7 +149,17 @@ export default function CapsulePage() {
           <section className="steel-panel-glow mt-10 overflow-hidden">
             <div className="relative overflow-hidden border-b border-black/60 px-8 py-10">
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(56,189,248,0.28),transparent_55%)]" />
-              <div className="relative">
+              <div className="relative flex flex-col gap-5 sm:flex-row sm:items-start">
+                {capsule.capsule_shape ? (
+                  <WeatherCapsule
+                    shape={capsule.capsule_shape}
+                    color={capsule.capsule_color}
+                    colorAlt={capsule.capsule_color_alt}
+                    sealed={!opened}
+                    size="md"
+                  />
+                ) : null}
+                <div className="min-w-0 flex-1">
                 <p className="label-caps">Time Capsule</p>
                 <h2 className="etched mt-3 text-3xl font-semibold tracking-tight sm:text-4xl">
                   {name}에게
@@ -174,6 +186,19 @@ export default function CapsulePage() {
                 <p className="mono-readout mt-4 text-sm text-slate-400">
                   UNLOCK · {formatOpenDate(capsule.open_at)}
                 </p>
+                <WeatherStamp
+                  weather={capsule.weather}
+                  weather_temp={capsule.weather_temp}
+                  weather_humidity={capsule.weather_humidity}
+                  className="mt-2"
+                />
+                {capsule.daily_quote ? (
+                  <p className="mt-3 text-sm leading-relaxed text-sky-100">
+                    {capsule.daily_quote}
+                  </p>
+                ) : null}
+                <KeywordChips keywords={capsule.keywords} className="mt-3" />
+                </div>
               </div>
             </div>
 
@@ -229,8 +254,12 @@ export default function CapsulePage() {
                   </h3>
                   <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-slate-400">
                     열람일이 되기 전에는 편지와 사진을 열어볼 수 없어요.
-                    남은 시간을 함께 기다려 주세요.
+                    키워드만 보고 그날의 공기를 떠올려 보세요.
                   </p>
+                  <KeywordChips
+                    keywords={capsule.keywords}
+                    className="mt-5 justify-center"
+                  />
 
                   <div className="mx-auto mt-8 grid max-w-md grid-cols-4 gap-2">
                     {(
