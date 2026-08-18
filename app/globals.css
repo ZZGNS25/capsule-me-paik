@@ -463,6 +463,20 @@ body {
   }
 }
 
+@keyframes capsule-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.capsule-float {
+  animation: capsule-float 4.8s ease-in-out infinite;
+}
+
 /* ─── Nav ─── */
 .nav-link {
   border-radius: 0.5rem;

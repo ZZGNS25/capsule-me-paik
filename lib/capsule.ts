@@ -86,11 +86,10 @@ export function saveCapsuleDraft(draft: CapsuleDraft) {
   sessionStorage.setItem(CAPSULE_DRAFT_KEY, JSON.stringify(draft));
 }
 
-export function consumeCapsuleDraft(): CapsuleDraft | null {
+export function peekCapsuleDraft(): CapsuleDraft | null {
   if (typeof window === "undefined") return null;
 
   const raw = sessionStorage.getItem(CAPSULE_DRAFT_KEY);
-  sessionStorage.removeItem(CAPSULE_DRAFT_KEY);
   if (!raw) return null;
 
   try {
@@ -104,18 +103,26 @@ export function consumeCapsuleDraft(): CapsuleDraft | null {
   }
 }
 
+export function clearCapsuleDraft() {
+  if (typeof window === "undefined") return;
+  sessionStorage.removeItem(CAPSULE_DRAFT_KEY);
+}
+
 export function setCapsuleLoginIntent(intent: CapsuleLoginIntent) {
   if (typeof window === "undefined") return;
   sessionStorage.setItem(CAPSULE_LOGIN_INTENT_KEY, intent);
 }
 
-export function consumeCapsuleLoginIntent(): CapsuleLoginIntent | null {
+export function peekCapsuleLoginIntent(): CapsuleLoginIntent | null {
   if (typeof window === "undefined") return null;
-
   const intent = sessionStorage.getItem(CAPSULE_LOGIN_INTENT_KEY);
-  sessionStorage.removeItem(CAPSULE_LOGIN_INTENT_KEY);
   if (intent === "create" || intent === "browse") return intent;
   return null;
+}
+
+export function clearCapsuleLoginIntent() {
+  if (typeof window === "undefined") return;
+  sessionStorage.removeItem(CAPSULE_LOGIN_INTENT_KEY);
 }
 
 export function formatCountdownLabel(openAt: string, now = Date.now()) {

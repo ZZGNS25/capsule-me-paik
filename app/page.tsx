@@ -2,24 +2,28 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   GoogleAuthProvider,
   onAuthStateChanged,
   signInWithPopup,
   type User,
 } from "firebase/auth";
+import { peekCapsuleLoginIntent } from "@/lib/capsule";
 import { getFirebaseAuth } from "@/lib/firebase";
 import AppHeader from "@/components/AppHeader";
 import CapsuleDashboard from "@/components/CapsuleDashboard";
-import GoogleLoginButton from "@/components/GoogleLoginButton";
+import LandingScreen from "@/components/LandingScreen";
 import NowWeather from "@/components/NowWeather";
 import PageShell from "@/components/PageShell";
 
 export default function Home() {
+  const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [redirecting, setRedirecting] = useState(false);
 
   useEffect(() => {
     return onAuthStateChanged(getFirebaseAuth(), (nextUser) => {
@@ -27,6 +31,13 @@ export default function Home() {
       setLoading(false);
     });
   }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    if (peekCapsuleLoginIntent() !== "create") return;
+    setRedirecting(true);
+    router.replace("/new");
+  }, [user, router]);
 
   async function handleGoogleLogin() {
     setError(null);
@@ -40,7 +51,7 @@ export default function Home() {
     }
   }
 
-  if (loading) {
+  if (loading || redirecting) {
     return (
       <PageShell centered>
         <p className="mono-readout text-sm text-slate-500">INITIALIZING…</p>
@@ -50,28 +61,12 @@ export default function Home() {
 
   if (!user) {
     return (
-      <PageShell centered>
-        <main className="steel-panel-glow w-full max-w-md px-10 py-14 text-center">
-          <div className="countdown-cell mx-auto flex h-14 w-14 items-center justify-center">
-            <span className="mono-readout countdown-digit text-lg font-semibold">
-              CM
-            </span>
-          </div>
-          <p className="label-caps mt-6">Time Capsule Protocol</p>
-          <h1 className="etched mt-3 text-4xl font-semibold tracking-tight sm:text-5xl">
-            캡슐 미
-          </h1>
-          <hr className="steel-rule mx-auto mt-6 w-24" />
-          <p className="mt-5 text-base leading-relaxed text-slate-400">
-            사진과 편지를 봉인하고,
-            <br />
-            정해진 날에 함께 열어요.
-          </p>
-          <div className="mt-10">
-            <GoogleLoginButton onClick={handleGoogleLogin} busy={busy} />
-          </div>
-          {error ? <p className="alert-error mt-4 text-left">{error}</p> : null}
-        </main>
+      <PageShell>
+        <LandingScreen
+          onGoogleLogin={() => void handleGoogleLogin()}
+          busy={busy}
+          error={error}
+        />
       </PageShell>
     );
   }

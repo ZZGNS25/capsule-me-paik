@@ -10,11 +10,14 @@ import {
 } from "firebase/auth";
 import {
   addDaysFromNow,
-  consumeCapsuleDraft,
+  clearCapsuleDraft,
+  clearCapsuleLoginIntent,
+  peekCapsuleDraft,
   toDatetimeLocalValue,
 } from "@/lib/capsule";
 import { formatWeatherLine, type WeatherSnapshot } from "@/lib/weather";
 import type { CapsuleStyle } from "@/lib/gemini";
+import { fallbackCapsuleStyle } from "@/lib/gemini";
 import { getFirebaseAuth } from "@/lib/firebase";
 import { CAPSULE_BUCKET, getSupabase } from "@/lib/supabase";
 import AppHeader from "@/components/AppHeader";
@@ -67,6 +70,15 @@ export default function NewCapsulePage() {
     });
   }, []);
 
+  useEffect(() => {
+    if (!authReady || !user) return;
+    clearCapsuleLoginIntent();
+    const draft = peekCapsuleDraft();
+    if (!draft) return;
+    if (draft.recipient) setRecipient(draft.recipient);
+    if (draft.openAt) setOpenAt(draft.openAt);
+  }, [authReady, user]);
+
   const previewUrls = useMemo(
     () => files.map((file) => URL.createObjectURL(file)),
     [files],
@@ -108,6 +120,7 @@ export default function NewCapsulePage() {
     setResult(null);
     setErrorMessage(null);
     setCopied(false);
+    clearCapsuleDraft();
   }
 
   async function handleGoogleLogin() {
@@ -136,14 +149,20 @@ export default function NewCapsulePage() {
     weather_humidity: number | null;
     recipient: string;
     letter: string;
-  }): Promise<CapsuleStyle | null> {
-    const response = await fetch("/api/capsule-style", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
-    if (!response.ok) return null;
-    return (await response.json()) as CapsuleStyle;
+  }): Promise<CapsuleStyle> {
+    try {
+      const response = await fetch("/api/capsule-style", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (response.ok) {
+        return (await response.json()) as CapsuleStyle;
+      }
+    } catch (error) {
+      console.error(error);
+    }
+    return fallbackCapsuleStyle(payload);
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -216,7 +235,11 @@ export default function NewCapsulePage() {
         console.error(weatherError);
       }
 
-      let style: CapsuleStyle | null = null;
+      let style: CapsuleStyle = fallbackCapsuleStyle({
+        weather,
+        weather_temp: weatherTemp,
+        weather_humidity: weatherHumidity,
+      });
       try {
         style = await fetchCapsuleStyle({
           weather,
@@ -241,11 +264,11 @@ export default function NewCapsulePage() {
           weather,
           weather_temp: weatherTemp,
           weather_humidity: weatherHumidity,
-          daily_quote: style?.daily_quote ?? null,
-          keywords: style?.keywords ?? [],
-          capsule_shape: style?.capsule_shape ?? null,
-          capsule_color: style?.capsule_color ?? null,
-          capsule_color_alt: style?.capsule_color_alt ?? null,
+          daily_quote: style.daily_quote,
+          keywords: style.keywords,
+          capsule_shape: style.capsule_shape,
+          capsule_color: style.capsule_color,
+          capsule_color_alt: style.capsule_color_alt,
         })
         .select(
           "id, recipient, open_at, weather, weather_temp, weather_humidity, daily_quote, keywords, capsule_shape, capsule_color, capsule_color_alt",
@@ -273,6 +296,7 @@ export default function NewCapsulePage() {
           data.capsule_color_alt ?? style?.capsule_color_alt ?? null,
       });
       setFiles([]);
+      clearCapsuleDraft();
     } catch (error) {
       console.error(error);
       setErrorMessage(getErrorMessage(error));

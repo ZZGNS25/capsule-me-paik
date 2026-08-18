@@ -19,6 +19,7 @@ import { getFirebaseAuth } from "@/lib/firebase";
 import { getSupabase } from "@/lib/supabase";
 import Countdown from "@/components/Countdown";
 import GoogleLoginButton from "@/components/GoogleLoginButton";
+import { weatherVisual } from "@/lib/weather";
 import WeatherStamp from "@/components/WeatherStamp";
 import WeatherCapsule from "@/components/WeatherCapsule";
 import KeywordChips from "@/components/KeywordChips";
@@ -276,8 +277,17 @@ export default function CapsuleDashboard({
         {visibleCapsules.map((capsule) => {
           const opened = isCapsuleOpen(capsule.open_at, now);
           const photos = getCapsulePhotoUrls(capsule.photo_paths);
-          const cover = photos[0];
           const name = capsule.recipient || capsule.title || "이름 없는 캡슐";
+
+          const visual = weatherVisual(
+            capsule.weather,
+            capsule.weather_temp,
+            capsule.weather_humidity,
+          );
+          const shape = capsule.capsule_shape || visual.shape;
+          const color = capsule.capsule_color || visual.capsule_color;
+          const colorAlt =
+            capsule.capsule_color_alt || visual.capsule_color_alt;
 
           return (
             <Link
@@ -285,43 +295,13 @@ export default function CapsuleDashboard({
               href={`/capsule/${capsule.id}`}
               className="steel-card group flex gap-4 p-4"
             >
-              {capsule.capsule_shape ? (
-                <WeatherCapsule
-                  shape={capsule.capsule_shape}
-                  color={capsule.capsule_color}
-                  colorAlt={capsule.capsule_color_alt}
-                  sealed={!opened}
-                  size="sm"
-                />
-              ) : (
-                <div className="photo-frame relative h-24 w-24 shrink-0 overflow-hidden bg-slate-900">
-                  {cover ? (
-                    <img
-                      src={cover}
-                      alt=""
-                      className={`h-full w-full object-cover transition ${
-                        opened ? "" : "scale-105 blur-[2px] brightness-75"
-                      }`}
-                    />
-                  ) : (
-                    <div className="mono-readout flex h-full items-center justify-center text-[10px] text-slate-500">
-                      NO IMG
-                    </div>
-                  )}
-                  {!opened ? (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/45">
-                      <span className="status-lamp status-lamp-locked" />
-                      <span className="mono-readout text-[10px] tracking-widest text-sky-200">
-                        SEALED
-                      </span>
-                    </div>
-                  ) : (
-                    <div className="absolute right-1.5 top-1.5">
-                      <span className="status-lamp status-lamp-open" />
-                    </div>
-                  )}
-                </div>
-              )}
+              <WeatherCapsule
+                shape={shape}
+                color={color}
+                colorAlt={colorAlt}
+                sealed={!opened}
+                size="sm"
+              />
 
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">

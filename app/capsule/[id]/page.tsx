@@ -16,6 +16,7 @@ import Countdown from "@/components/Countdown";
 import AppHeader from "@/components/AppHeader";
 import PageShell from "@/components/PageShell";
 import { OpenMessageBanner } from "@/components/OpenMessage";
+import { weatherVisual } from "@/lib/weather";
 import WeatherStamp from "@/components/WeatherStamp";
 import WeatherCapsule from "@/components/WeatherCapsule";
 import KeywordChips from "@/components/KeywordChips";
@@ -119,6 +120,13 @@ export default function CapsulePage() {
   const photos = capsule ? getCapsulePhotoUrls(capsule.photo_paths) : [];
   const name = capsule?.recipient || capsule?.title || "이름 없는 캡슐";
   const parts = capsule ? getCountdownParts(capsule.open_at, now) : null;
+  const visual = capsule
+    ? weatherVisual(
+        capsule.weather,
+        capsule.weather_temp,
+        capsule.weather_humidity,
+      )
+    : null;
 
   return (
     <PageShell>
@@ -150,11 +158,13 @@ export default function CapsulePage() {
             <div className="relative overflow-hidden border-b border-black/60 px-8 py-10">
               <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(56,189,248,0.28),transparent_55%)]" />
               <div className="relative flex flex-col gap-5 sm:flex-row sm:items-start">
-                {capsule.capsule_shape ? (
+                {visual ? (
                   <WeatherCapsule
-                    shape={capsule.capsule_shape}
-                    color={capsule.capsule_color}
-                    colorAlt={capsule.capsule_color_alt}
+                    shape={capsule.capsule_shape || visual.shape}
+                    color={capsule.capsule_color || visual.capsule_color}
+                    colorAlt={
+                      capsule.capsule_color_alt || visual.capsule_color_alt
+                    }
                     sealed={!opened}
                     size="md"
                   />
