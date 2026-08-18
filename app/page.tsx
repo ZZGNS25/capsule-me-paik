@@ -11,6 +11,7 @@ import {
 } from "firebase/auth";
 import { peekCapsuleLoginIntent } from "@/lib/capsule";
 import { getFirebaseAuth } from "@/lib/firebase";
+import { trackEvent } from "@/lib/analytics";
 import AppHeader from "@/components/AppHeader";
 import CapsuleDashboard from "@/components/CapsuleDashboard";
 import LandingScreen from "@/components/LandingScreen";
@@ -44,6 +45,7 @@ export default function Home() {
     setBusy(true);
     try {
       await signInWithPopup(getFirebaseAuth(), new GoogleAuthProvider());
+      trackEvent("login", { method: "google" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "로그인에 실패했습니다.");
     } finally {

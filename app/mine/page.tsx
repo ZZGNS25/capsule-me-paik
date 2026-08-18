@@ -1,6 +1,14 @@
+import { createPageMetadata } from "@/lib/site";
 import AppHeader from "@/components/AppHeader";
 import CapsuleDashboard from "@/components/CapsuleDashboard";
 import PageShell from "@/components/PageShell";
+
+export const metadata = createPageMetadata({
+  title: "내 캡슐",
+  description: "내가 묻어 둔 타임캡슐 목록과 열람일까지 남은 시간.",
+  path: "/mine",
+  noIndex: true,
+});
 
 export default function MyCapsulesPage() {
   return (

@@ -19,6 +19,7 @@ import { formatWeatherLine, type WeatherSnapshot } from "@/lib/weather";
 import type { CapsuleStyle } from "@/lib/gemini";
 import { fallbackCapsuleStyle } from "@/lib/gemini";
 import { getFirebaseAuth } from "@/lib/firebase";
+import { trackEvent } from "@/lib/analytics";
 import { getSupabase } from "@/lib/supabase";
 import { uploadCapsulePhoto } from "@/lib/photo";
 import AppHeader from "@/components/AppHeader";
@@ -140,6 +141,7 @@ export default function NewCapsulePage() {
     setLoginBusy(true);
     try {
       await signInWithPopup(getFirebaseAuth(), new GoogleAuthProvider());
+      trackEvent("login", { method: "google" });
     } finally {
       setLoginBusy(false);
     }
@@ -286,6 +288,10 @@ export default function NewCapsulePage() {
         capsule_color: data.capsule_color ?? style?.capsule_color ?? null,
         capsule_color_alt:
           data.capsule_color_alt ?? style?.capsule_color_alt ?? null,
+      });
+      trackEvent("capsule_seal", {
+        has_weather: Boolean(weather),
+        photo_count: photoUrls.length,
       });
       setFiles([]);
       clearCapsuleDraft();
