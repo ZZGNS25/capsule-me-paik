@@ -12,6 +12,7 @@ import { getFirebaseAuth } from "@/lib/firebase";
 import AppHeader from "@/components/AppHeader";
 import CapsuleDashboard from "@/components/CapsuleDashboard";
 import GoogleLoginButton from "@/components/GoogleLoginButton";
+import NowWeather from "@/components/NowWeather";
 import PageShell from "@/components/PageShell";
 
 export default function Home() {
@@ -79,6 +80,7 @@ export default function Home() {
     <PageShell>
       <main className="mx-auto w-full max-w-3xl">
         <AppHeader />
+        <NowWeather className="mt-6" />
         <p className="mt-6 max-w-xl text-base leading-relaxed text-slate-400">
           사진과 편지를 묻고, 열람일에 함께 열어요. 아래에서 캡슐 상태와
           카운트다운을 확인하세요. 내가 묻은 것만 보려면{" "}

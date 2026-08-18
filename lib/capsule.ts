@@ -1,5 +1,8 @@
 import { CAPSULE_BUCKET, getSupabase } from "@/lib/supabase";
 
+export const CAPSULE_SELECT =
+  "id, owner_uid, title, recipient, letter, open_at, created_at, photo_paths, weather, weather_temp, weather_humidity, daily_quote, keywords, capsule_shape, capsule_color, capsule_color_alt";
+
 export type Capsule = {
   id: string;
   owner_uid: string;
@@ -9,6 +12,14 @@ export type Capsule = {
   open_at: string;
   created_at: string;
   photo_paths: string[] | null;
+  weather: string | null;
+  weather_temp: number | null;
+  weather_humidity: number | null;
+  daily_quote: string | null;
+  keywords: string[] | null;
+  capsule_shape: string | null;
+  capsule_color: string | null;
+  capsule_color_alt: string | null;
 };
 
 export function getPhotoUrl(path: string) {
@@ -58,6 +69,53 @@ export function addDaysFromNow(days: number) {
   next.setDate(next.getDate() + days);
   next.setMinutes(0, 0, 0);
   return toDatetimeLocalValue(next);
+}
+
+const CAPSULE_DRAFT_KEY = "capsule-me-draft";
+const CAPSULE_LOGIN_INTENT_KEY = "capsule-login-intent";
+
+export type CapsuleDraft = {
+  recipient: string;
+  openAt: string;
+};
+
+export type CapsuleLoginIntent = "create" | "browse";
+
+export function saveCapsuleDraft(draft: CapsuleDraft) {
+  if (typeof window === "undefined") return;
+  sessionStorage.setItem(CAPSULE_DRAFT_KEY, JSON.stringify(draft));
+}
+
+export function consumeCapsuleDraft(): CapsuleDraft | null {
+  if (typeof window === "undefined") return null;
+
+  const raw = sessionStorage.getItem(CAPSULE_DRAFT_KEY);
+  sessionStorage.removeItem(CAPSULE_DRAFT_KEY);
+  if (!raw) return null;
+
+  try {
+    const parsed = JSON.parse(raw) as Partial<CapsuleDraft>;
+    return {
+      recipient: typeof parsed.recipient === "string" ? parsed.recipient : "",
+      openAt: typeof parsed.openAt === "string" ? parsed.openAt : "",
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function setCapsuleLoginIntent(intent: CapsuleLoginIntent) {
+  if (typeof window === "undefined") return;
+  sessionStorage.setItem(CAPSULE_LOGIN_INTENT_KEY, intent);
+}
+
+export function consumeCapsuleLoginIntent(): CapsuleLoginIntent | null {
+  if (typeof window === "undefined") return null;
+
+  const intent = sessionStorage.getItem(CAPSULE_LOGIN_INTENT_KEY);
+  sessionStorage.removeItem(CAPSULE_LOGIN_INTENT_KEY);
+  if (intent === "create" || intent === "browse") return intent;
+  return null;
 }
 
 export function formatCountdownLabel(openAt: string, now = Date.now()) {
